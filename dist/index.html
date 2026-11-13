@@ -9,12 +9,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-A99IlFCT.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/vendor-react-qI4NGObK.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-ui-BOPLaEMz.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-gsap-B5ArlO1j.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-charts-DDZlTO7B.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-DUpEaj26.css">
+    <script>
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = './dist/assets/index-DUpEaj26.css';
+        document.head.appendChild(link);
+      }
+    </script>
+    <script type="module" crossorigin src="./assets/index-DAgts0Ki.js"></script>
   </head>
   <body class="bg-[#0B0D0C] text-[#F1F5F2] antialiased selection:bg-[#38B879]/20 selection:text-[#38B879]">
     <div id="root"></div>

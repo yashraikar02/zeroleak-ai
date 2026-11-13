@@ -17,7 +17,7 @@ export const LLM_BACKENDS = [
 
 export const INITIAL_POLICIES = {
   Banking: {
-    AADHAAR: "block",
+    AADHAAR: "mask",
     PAN: "mask",
     GSTIN: "mask",
     VOTER_ID: "mask",
@@ -138,20 +138,33 @@ const INDIAN_FIRST_NAMES = [
   "deepak", "sneha", "pooja", "rohit", "rajesh", "manoj", "sanjay", "anita", "kavita",
   "arun", "vijay", "ajay", "neha", "swati", "nisha", "divya", "karthik", "venkat",
   "lakshmi", "ganesh", "harish", "ashok", "ananya", "kabir", "aditya", "alok", "meera",
-  "kavya", "dev", "sana"
+  "kavya", "dev", "sana", "asha", "rekha", "rani", "geeta", "seema", "rohan", "aman", "varun"
 ];
 
 const INDIAN_LAST_NAMES = [
   "sharma", "patel", "verma", "kumar", "singh", "gupta", "rao", "reddy", "nair", "sundaram",
   "iyer", "iyengar", "joshi", "bhat", "deshmukh", "kulkarni", "mehta", "shah", "jain",
   "agarwal", "bansal", "mishra", "pandey", "tiwari", "choudhury", "mukherjee", "banerjee",
-  "das", "sen", "ghosh", "chatterjee", "demo", "example"
+  "das", "sen", "ghosh", "chatterjee"
 ];
 
 const NAME_STOP_WORDS = new Set([
-  "with", "and", "having", "is", "has", "pan", "aadhaar", "phone", "email", "mobile",
-  "address", "voter", "passport", "the", "for", "from", "to", "of", "in", "at", "my", "our",
-  "department", "engineering", "review", "kyc"
+  // Synthetic/test suffixes — must NEVER be treated as surnames
+  "example", "demo", "sample", "test", "dummy", "placeholder",
+  // Generic nouns that appear after real names in documents
+  "user", "client", "customer", "person", "applicant", "borrower", "employee", "patient",
+  "holder", "subject", "individual", "member", "contact", "supplier", "vendor",
+  // Conjunctions & prepositions
+  "with", "and", "having", "is", "has", "was", "are", "or", "not",
+  "the", "for", "from", "to", "of", "in", "at", "my", "our", "its", "their",
+  // PII entity labels (stop names before label keywords)
+  "pan", "aadhaar", "aadhar", "phone", "mobile", "email", "address", "gstin", "gst",
+  "voter", "passport", "dob", "bank", "account", "ifsc",
+  // Document-structure words
+  "department", "engineering", "review", "kyc", "verification", "onboarding",
+  "number", "no", "id", "type", "code", "ref", "request", "note", "notes",
+  // Common job/role words that follow names
+  "ceo", "cto", "manager", "officer", "director", "analyst", "engineer", "consultant",
 ]);
 
 // Helper to simulate mock process response based on input
@@ -304,21 +317,27 @@ export function generateMockProcessResult(input) {
 
   // 11. Robust Case-Insensitive Indian Person Name Recognition:
   // Layer A: Contextual triggers ("customer: ...", "contact person: ...", "patient: ...", "name: ...")
-  const contextNameRegex = /(?:contact person[:\s-]+|supplier[:\s-]+|customer[:\s-]+|patient[:\s-]+|employee[:\s-]+|applicant[:\s-]+|borrower[:\s-]+|user[:\s-]+|name[:\s-]+|my name is|i am|mr\.|mrs\.|ms\.|shri|smt|dr\.)\s+([a-zA-Z\s]{2,40})/gi;
+  // The regex captures up to 40 chars after the trigger; we then tokenize and stop at NAME_STOP_WORDS
+  const contextNameRegex = /(?:contact person[:\s-]+|supplier[:\s-]+|customer[:\s-]+|patient[:\s-]+|employee[:\s-]+|applicant[:\s-]+|borrower[:\s-]+|user[:\s-]+|name[:\s-]+|my name is\s+|i am\s+|mr\.\s*|mrs\.\s*|ms\.\s*|shri\s+|smt\s+|dr\.\s*)([a-zA-Z][a-zA-Z\s]{1,38})/gi;
   while ((m = contextNameRegex.exec(text)) !== null) {
     const candidate = m[1].trim();
     const tokens = candidate.split(/\s+/);
     const validTokens = [];
     for (const tok of tokens) {
-      if (NAME_STOP_WORDS.has(tok.toLowerCase()) || /[^a-zA-Z]/.test(tok)) break;
+      const lTok = tok.toLowerCase();
+      // Stop at any stop word OR at any token that looks like a label (all-caps short word like "PAN", "ID", "DOB")
+      if (NAME_STOP_WORDS.has(lTok) || /[^a-zA-Z]/.test(tok) || (tok === tok.toUpperCase() && tok.length <= 6 && tok.length > 1)) break;
       validTokens.push(tok);
       if (validTokens.length >= 3) break;
     }
-    if (validTokens.length >= 1 && validTokens.length <= 3) {
+    // Require at least one token and that the first token is a plausible name (alpha only, length 2+)
+    if (validTokens.length >= 1 && /^[a-zA-Z]{2,}$/.test(validTokens[0])) {
       const detectedName = validTokens.join(" ");
       const nameIndexInMatch = m[0].toLowerCase().indexOf(detectedName.toLowerCase());
-      const exactStart = m.index + nameIndexInMatch;
-      registerSpan("PERSON", detectedName, "Indian personal proper name detected via context + Presidio NER", 0.985, true, exactStart, exactStart + detectedName.length);
+      if (nameIndexInMatch >= 0) {
+        const exactStart = m.index + nameIndexInMatch;
+        registerSpan("PERSON", detectedName, "Indian personal proper name detected via context + Presidio NER", 0.985, true, exactStart, exactStart + detectedName.length);
+      }
     }
   }
 

@@ -92,7 +92,7 @@ function handleAxiosError(error, retryCallback) {
 // ----------------------------------------------------
 export function getStoredPolicies() {
   const version = localStorage.getItem("zeroleak_policy_version");
-  const CURRENT_POLICY_VERSION = "2.1";
+  const CURRENT_POLICY_VERSION = "2.2";
   if (version !== CURRENT_POLICY_VERSION) {
     localStorage.setItem("zeroleak_policy_version", CURRENT_POLICY_VERSION);
     saveStoredPolicies(INITIAL_POLICIES);
