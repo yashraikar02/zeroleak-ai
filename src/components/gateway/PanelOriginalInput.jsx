@@ -2,10 +2,8 @@
 import {
   Edit3,
   Eye,
-  FileText,
   Trash2,
   Lock,
-  Upload,
   AlertTriangle,
   ShieldAlert,
   ShieldCheck,
@@ -257,28 +255,21 @@ export default function OriginalDocumentPanel({
 
       {/* ── Main Content Area ── */}
       <div className="flex-1 p-4 overflow-y-auto min-h-[320px] max-h-[500px] text-sm leading-relaxed relative">
-        {!text && (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#9A9A9A] border border-dashed border-[#2A2A2A] rounded-lg">
-            <Upload className="w-8 h-8 text-[#9A9A9A]/40 mb-3" />
-            <p className="text-xs font-medium text-[#F5F5F5]">Paste text or drop a file here</p>
-            <p className="text-[11px] mt-1">Supports loan applications, KYC forms, medical notes, support tickets</p>
-            <p className="text-[10px] mt-2 font-mono text-[#9A9A9A]/60">.pdf · .txt · .json · .csv · .log · .md</p>
-          </div>
-        )}
-
         {text && showHighlights ? (
           <div className="font-mono text-[12.5px] whitespace-pre-wrap select-text leading-relaxed text-[#F5F5F5]/90">
             {renderHighlightedText(text, entities, hoveredPlaceholder, onHoverPlaceholder)}
           </div>
-        ) : text ? (
+        ) : (
+          /* Always show a textarea — even when empty so users can type directly */
           <textarea
             value={text}
             onChange={handleTextChange}
-            placeholder="Paste raw text, loan form, KYC details or any Indian PII document here…"
-            className="w-full h-full min-h-[300px] bg-transparent text-[#F5F5F5] font-mono text-[12.5px] leading-relaxed resize-none outline-none placeholder:text-[#9A9A9A]/50"
+            placeholder={"Paste or type your document here…\n\nExamples:\n• Loan / KYC application with Aadhaar, PAN, phone\n• Healthcare intake / patient record\n• HR onboarding form\n• Support ticket with customer PII\n\nOr drag-and-drop / upload a .pdf, .txt, .json, .csv, .log or .md file above."}
+            className="w-full h-full min-h-[300px] bg-transparent text-[#F5F5F5] font-mono text-[12.5px] leading-relaxed resize-none outline-none placeholder:text-[#9A9A9A]/40"
             spellCheck={false}
+            autoFocus={!text}
           />
-        ) : null}
+        )}
       </div>
 
       {/* ── Footer Status Bar ── */}
