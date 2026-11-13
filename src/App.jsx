@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import GatewayPage from "./pages/GatewayPage";
@@ -15,7 +15,7 @@ import { AnimationProvider } from "./context/AnimationContext";
 export default function App() {
   return (
     <AnimationProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           {/* Marketing Landing Page */}
           <Route path="/" element={<LandingPage />} />
@@ -40,7 +40,7 @@ export default function App() {
           {/* 404 Route */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </AnimationProvider>
   );
 }
