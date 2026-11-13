@@ -169,6 +169,20 @@ const NAME_STOP_WORDS = new Set([
   "number", "no", "id", "type", "code", "ref", "request", "note", "notes",
   // Common job/role words that follow names
   "ceo", "cto", "manager", "officer", "director", "analyst", "engineer", "consultant",
+  // Document section headers & field labels (commonly ALL-CAPS in forms)
+  "profile", "personal", "declaration", "summary", "overview", "information",
+  "field", "section", "general", "additional", "required", "entry", "full",
+  "permanent", "current", "residential", "employer", "occupation", "purpose",
+  "annual", "income", "tax", "submission", "date", "city", "state", "pin",
+  "hereby", "provided", "true", "complete", "accurate", "knowledge", "belief",
+  "signature", "place", "witness", "nominee", "relationship", "category",
+  "loan", "credit", "debit", "savings", "joint", "primary", "secondary",
+  "first", "last", "middle", "maiden", "gender", "nationality", "religion",
+  "marital", "status", "birth", "age", "title", "prefix", "suffix",
+  "address", "landmark", "district", "country", "pincode", "zip",
+  "office", "work", "home", "alternate", "emergency", "reference",
+  "qualification", "education", "experience", "designation", "salary",
+  "net", "gross", "monthly", "yearly", "total", "amount",
 ]);
 
 // Helper to simulate mock process response based on input
@@ -322,20 +336,23 @@ export function generateMockProcessResult(input) {
   // 11. Robust Case-Insensitive Indian Person Name Recognition:
   // Layer A: Contextual triggers ("customer: ...", "contact person: ...", "patient: ...", "name: ...")
   // The regex captures up to 40 chars after the trigger; we then tokenize and stop at NAME_STOP_WORDS
-  const contextNameRegex = /(?:contact person[:\s-]+|supplier[:\s-]+|customer[:\s-]+|patient[:\s-]+|employee[:\s-]+|applicant[:\s-]+|borrower[:\s-]+|user[:\s-]+|name[:\s-]+|my name is\s+|i am\s+|mr\.\s*|mrs\.\s*|ms\.\s*|shri\s+|smt\s+|dr\.\s*)([a-zA-Z][a-zA-Z\s]{1,38})/gi;
+  const contextNameRegex = /(?:contact person[:\s-]+|supplier[:\s-]+|customer[:\s-]+|patient[:\s-]+|employee[:\s-]+|applicant\s*\d*\s*(?:\([^)]*\))?\s*:\s*|borrower[:\s-]+|user[:\s-]+|(?:full\s+)?name[:\s-]+|my name is\s+|i am\s+|mr\.\s*|mrs\.\s*|ms\.\s*|shri\s+|smt\s+|dr\.\s*)([A-Z][a-z][a-zA-Z\s]{1,36})/g;
   while ((m = contextNameRegex.exec(text)) !== null) {
     const candidate = m[1].trim();
     const tokens = candidate.split(/\s+/);
     const validTokens = [];
     for (const tok of tokens) {
       const lTok = tok.toLowerCase();
-      // Stop at any stop word OR at any token that looks like a label (all-caps short word like "PAN", "ID", "DOB")
-      if (NAME_STOP_WORDS.has(lTok) || /[^a-zA-Z]/.test(tok) || (tok === tok.toUpperCase() && tok.length <= 6 && tok.length > 1)) break;
+      // Stop at: stop word, non-alpha char, ANY all-caps token (section headers like PROFILE, PERSONAL, DECLARATION)
+      const isAllCaps = tok.length > 1 && tok === tok.toUpperCase() && /^[A-Z]+$/.test(tok);
+      if (NAME_STOP_WORDS.has(lTok) || /[^a-zA-Z]/.test(tok) || isAllCaps) break;
       validTokens.push(tok);
       if (validTokens.length >= 3) break;
     }
-    // Require at least one token and that the first token is a plausible name (alpha only, length 2+)
-    if (validTokens.length >= 1 && /^[a-zA-Z]{2,}$/.test(validTokens[0])) {
+    // Require at least one token, first token is a plausible name (alpha only, length 2+, NOT all-caps)
+    const firstTok = validTokens[0] || "";
+    const firstIsAllCaps = firstTok.length > 1 && firstTok === firstTok.toUpperCase() && /^[A-Z]+$/.test(firstTok);
+    if (validTokens.length >= 1 && /^[a-zA-Z]{2,}$/.test(firstTok) && !firstIsAllCaps) {
       const detectedName = validTokens.join(" ");
       const nameIndexInMatch = m[0].toLowerCase().indexOf(detectedName.toLowerCase());
       if (nameIndexInMatch >= 0) {
