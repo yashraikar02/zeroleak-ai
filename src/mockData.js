@@ -154,6 +154,10 @@ const NAME_STOP_WORDS = new Set([
   // Generic nouns that appear after real names in documents
   "user", "client", "customer", "person", "applicant", "borrower", "employee", "patient",
   "holder", "subject", "individual", "member", "contact", "supplier", "vendor",
+  // Document-structure nouns (often follow a name or trigger word)
+  "application", "record", "account", "request", "form", "case", "file", "details",
+  "document", "ticket", "invoice", "report", "review", "note", "notes",
+  "this", "that", "these", "those", "please", "regarding",
   // Conjunctions & prepositions
   "with", "and", "having", "is", "has", "was", "are", "or", "not",
   "the", "for", "from", "to", "of", "in", "at", "my", "our", "its", "their",

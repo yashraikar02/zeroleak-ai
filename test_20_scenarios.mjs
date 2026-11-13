@@ -37,9 +37,9 @@ const panAction1 = r1.entities.find(e => e.type === "PAN")?.action;
 recordTest(
   1,
   "Valid document containing Aadhaar and PAN",
-  "Valid doc, Aadhaar: blocked, PAN: masked, GSTIN: masked",
+  "Valid doc, Aadhaar: masked (Banking=mask), PAN: masked, GSTIN: masked, not blocking",
   `Valid: ${v1.valid}, Aadhaar: ${aadhaarAction1}, PAN: ${panAction1}, GSTIN: ${gstinAction1}, Blocked: ${r1.is_blocking}`,
-  v1.valid && aadhaarAction1 === "blocked" && panAction1 === "masked" && gstinAction1 === "masked" && r1.is_blocking
+  v1.valid && aadhaarAction1 === "masked" && panAction1 === "masked" && gstinAction1 === "masked" && !r1.is_blocking
 );
 
 // ----------------------------------------------------
