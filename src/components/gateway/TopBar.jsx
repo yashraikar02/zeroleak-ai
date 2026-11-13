@@ -4,18 +4,13 @@ import { extractTextFromPdf } from "../../lib/pdfExtractor";
 import { validateDocumentContent } from "../../lib/documentValidator";
 import {
   ShieldCheck,
-  Play,
-  Square,
   Upload,
-  FileText,
   Building2,
   FileCheck2,
   Cpu,
   Trash2,
-  Sparkles,
-  ChevronDown
 } from "lucide-react";
-import { DEPARTMENTS, TASKS, LLM_BACKENDS, SAMPLE_DOCUMENTS } from "../../mockData";
+import { DEPARTMENTS, TASKS, LLM_BACKENDS } from "../../mockData";
 import { cn } from "../../lib/utils";
 
 export default function TopBar({
@@ -25,38 +20,20 @@ export default function TopBar({
   setTask,
   llmBackend,
   setLlmBackend,
-  onSelectSample,
   onFileUpload,
   onClearText,
   onProcess,
   loading,
-  isDemoRunning,
-  onToggleDemo,
   hasText,
 }) {
   const fileInputRef = useRef(null);
 
-  // Allowed text-based and PDF extensions
   const ALLOWED_EXTENSIONS = [".txt", ".json", ".csv", ".log", ".md", ".pdf"];
-  const ALLOWED_MIME_PREFIXES = ["text/", "application/json", "application/csv", "application/pdf"];
   const MAX_FILE_SIZE_MB = 10;
-
-  /**
-   * Checks the first 512 bytes for non-printable / binary characters.
-   * Returns true if the content looks like valid readable text.
-   */
-  function isReadableText(content) {
-    const sample = content.slice(0, 512);
-    // Count non-printable characters (excluding common whitespace)
-    const nonPrintable = [...sample].filter(
-      (ch) => ch.charCodeAt(0) < 9 || (ch.charCodeAt(0) > 13 && ch.charCodeAt(0) < 32) || ch.charCodeAt(0) === 127
-    );
-    return nonPrintable.length / sample.length < 0.1; // <10% non-printable → OK
-  }
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
-    // Reset input so the same file can be re-selected after an error
+    // Reset so the same file can be re-selected after an error
     e.target.value = "";
 
     if (!file) return;
@@ -96,9 +73,12 @@ export default function TopBar({
         const arrayBuffer = await file.arrayBuffer();
         const extracted = await extractTextFromPdf(arrayBuffer);
         const extractedText = extracted.text;
-        
+
         if (!extractedText || extractedText.trim().length < 10) {
-          toast.error("Invalid PDF — no readable text found. Scanned or image-only PDFs are not supported.", { id: toastId });
+          toast.error(
+            "Invalid PDF — no readable text found. Scanned or image-only PDFs are not supported.",
+            { id: toastId }
+          );
           return;
         }
 
@@ -108,20 +88,26 @@ export default function TopBar({
           return;
         }
 
-        toast.success(`PDF "${file.name}" loaded (${extractedText.length.toLocaleString()} characters, ${extracted.numPages} page(s)).`, { id: toastId });
+        toast.success(
+          `PDF "${file.name}" loaded (${extractedText.length.toLocaleString()} characters, ${extracted.numPages} page(s)).`,
+          { id: toastId }
+        );
         onFileUpload(extractedText, file.name, {
           size: file.size,
           type: "PDF",
-          numPages: extracted.numPages
+          numPages: extracted.numPages,
         });
       } catch (err) {
         console.error("PDF parse error:", err);
-        toast.error(`Failed to parse PDF: ${err.message || "Invalid or encrypted PDF document."}`, { id: toastId, duration: 6000 });
+        toast.error(
+          `Failed to parse PDF: ${err.message || "Invalid or encrypted PDF document."}`,
+          { id: toastId, duration: 6000 }
+        );
       }
       return;
     }
 
-    // 5. Handle plain text files
+    // 5. Handle plain text / structured files
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result;
@@ -141,7 +127,10 @@ export default function TopBar({
     };
 
     reader.onerror = () => {
-      toast.error(`Failed to read "${file.name}" — file may be corrupt or inaccessible.`, { duration: 6000 });
+      toast.error(
+        `Failed to read "${file.name}" — file may be corrupt or inaccessible.`,
+        { duration: 6000 }
+      );
     };
 
     reader.readAsText(file);
@@ -150,9 +139,11 @@ export default function TopBar({
   return (
     <div className="bg-[#141414] border-b border-[#2A2A2A] p-3 md:p-4 sticky top-0 z-20 font-sans">
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        {/* Left side selectors */}
+
+        {/* Left — Department / Purpose / LLM selectors */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Department Dropdown */}
+
+          {/* Department */}
           <div className="flex items-center gap-1.5 bg-[#1A1A1A] px-2.5 py-1.5 rounded-md border border-[#2A2A2A] text-xs">
             <Building2 className="w-3.5 h-3.5 text-[#E5484D]" />
             <span className="text-[#9A9A9A] hidden sm:inline">Dept:</span>
@@ -169,7 +160,7 @@ export default function TopBar({
             </select>
           </div>
 
-          {/* Task / Purpose Dropdown */}
+          {/* Purpose / Task */}
           <div className="flex items-center gap-1.5 bg-[#1A1A1A] px-2.5 py-1.5 rounded-md border border-[#2A2A2A] text-xs">
             <FileCheck2 className="w-3.5 h-3.5 text-[#E5484D]" />
             <span className="text-[#9A9A9A] hidden sm:inline">Purpose:</span>
@@ -186,7 +177,7 @@ export default function TopBar({
             </select>
           </div>
 
-          {/* External LLM Selection */}
+          {/* External LLM */}
           <div className="flex items-center gap-1.5 bg-[#1A1A1A] px-2.5 py-1.5 rounded-md border border-[#2A2A2A] text-xs">
             <Cpu className="w-3.5 h-3.5 text-[#E5484D]" />
             <span className="text-[#9A9A9A] hidden sm:inline">External LLM:</span>
@@ -202,86 +193,42 @@ export default function TopBar({
               ))}
             </select>
           </div>
-
-          {/* Samples Dropdown */}
-          <div className="flex items-center gap-1.5 bg-[#1A1A1A] px-2.5 py-1.5 rounded-md border border-[#2A2A2A] text-xs">
-            <FileText className="w-3.5 h-3.5 text-[#9A9A9A]" />
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  onSelectSample(e.target.value);
-                  e.target.value = "";
-                }
-              }}
-              defaultValue=""
-              className="bg-transparent text-[#9A9A9A] hover:text-[#F5F5F5] outline-none cursor-pointer text-xs"
-            >
-              <option value="" disabled className="bg-[#141414] text-[#9A9A9A]">
-                Load Sample Scenario...
-              </option>
-              {SAMPLE_DOCUMENTS.map((doc) => (
-                <option key={doc.id} value={doc.id} className="bg-[#141414] text-[#F5F5F5]">
-                  {doc.title}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
-        {/* Right side actions */}
+        {/* Right — Upload / Clear / Process */}
         <div className="flex items-center gap-2">
-          {/* File Upload Button */}
+
+          {/* Hidden file input */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
             accept=".txt,.json,.csv,.log,.md,.pdf"
-            title="Upload document (.pdf, .txt, .json, .csv, .log, .md)"
             className="hidden"
           />
+
+          {/* Upload button */}
           <button
             onClick={() => fileInputRef.current?.click()}
             className="btn-secondary text-xs py-1.5 px-2.5"
-            title="Upload document (.pdf, .txt, .json, .csv)"
+            title="Upload document (.pdf, .txt, .json, .csv, .log, .md)"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Upload File (.pdf / text)</span>
+            <span className="hidden sm:inline">Upload File</span>
           </button>
 
-          {/* Clear Text Button */}
+          {/* Clear button — only when text is present */}
           {hasText && (
             <button
               onClick={onClearText}
               className="p-1.5 text-[#9A9A9A] hover:text-[#E5484D] transition-colors rounded-md hover:bg-[#1A1A1A]"
-              title="Clear input text"
+              title="Clear input"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
 
-          {/* Demo Mode Button */}
-          <button
-            onClick={onToggleDemo}
-            className={cn(
-              "btn-secondary text-xs py-1.5 px-2.5",
-              isDemoRunning && "border-[#E5484D] text-[#E5484D] bg-[#E5484D]/10"
-            )}
-            title={isDemoRunning ? "Stop automated walkthrough" : "Run automated demo walkthrough"}
-          >
-            {isDemoRunning ? (
-              <>
-                <Square className="w-3.5 h-3.5 text-[#E5484D]" />
-                <span className="hidden sm:inline">Stop Demo</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Automated Demo</span>
-              </>
-            )}
-          </button>
-
-          {/* Process Document Primary Action */}
+          {/* Process Document — primary CTA */}
           <button
             onClick={() => onProcess()}
             disabled={loading || !hasText}
@@ -291,6 +238,7 @@ export default function TopBar({
             <span>{loading ? "Processing..." : "Process Document"}</span>
           </button>
         </div>
+
       </div>
     </div>
   );

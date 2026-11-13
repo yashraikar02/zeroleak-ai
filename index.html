@@ -25,7 +25,10 @@
       if (isLocal) {
         import('/src/main.jsx');
       } else {
-        import('./docs/assets/main-BiQ2GPPm.js');
+        // Dynamic import using string concat to prevent Vite bundling the production path
+        const base = './docs/assets/';
+        const entry = 'main-BUzXD09T.js';
+        import(/* @vite-ignore */ base + entry);
       }
     </script>
   </body>

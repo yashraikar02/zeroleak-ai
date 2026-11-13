@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import TopBar from "../components/gateway/TopBar";
 import PipelineTracker from "../components/gateway/PipelineTracker";
 import OriginalDocumentPanel from "../components/gateway/PanelOriginalInput";
@@ -7,7 +7,6 @@ import FinalResponsePanel from "../components/gateway/PanelFinalResponse";
 import ExplainabilitySection from "../components/gateway/ExplainabilitySection";
 import RiskGaugeCard from "../components/gateway/RiskGaugeCard";
 import AlertsPanel from "../components/gateway/AlertsPanel";
-import { SAMPLE_DOCUMENTS } from "../mockData";
 import { processText, updateDepartmentPolicy } from "../api";
 import { toast } from "sonner";
 import { Lock, ArrowRight } from "lucide-react";
@@ -17,7 +16,7 @@ export default function GatewayPage() {
   const [department, setDepartment] = useState("Banking");
   const [task, setTask] = useState("Summarize Document");
   const [llmBackend, setLlmBackend] = useState("gemini-1.5-pro");
-  const [text, setText] = useState(SAMPLE_DOCUMENTS[0].text);
+  const [text, setText] = useState("");
 
   // Processing state & API response
   const [loading, setLoading] = useState(false);
@@ -27,17 +26,12 @@ export default function GatewayPage() {
   const [hoveredPlaceholder, setHoveredPlaceholder] = useState(null);
   const [uploadedFileMeta, setUploadedFileMeta] = useState(null);
 
-  // Demo mode state
-  const [isDemoRunning, setIsDemoRunning] = useState(false);
-  const [demoStep, setDemoStep] = useState(0);
-  const demoTimerRef = useRef(null);
-
   const handleProcess = useCallback(
     async (customText, customDept, customTask, customBackend, customFilename) => {
       const textToProcess = customText !== undefined ? customText : text;
       const effectiveFilename = customFilename || uploadedFileMeta?.name || "";
-      
-      // Document validity & content integrity check (PC-09, PC-10, Random Garbage)
+
+      // Document validity & content integrity check
       const validation = validateDocumentContent(textToProcess, effectiveFilename);
       if (!validation.valid) {
         toast.error(validation.error, { duration: 6000 });
@@ -76,16 +70,6 @@ export default function GatewayPage() {
     [text, department, task, llmBackend, uploadedFileMeta]
   );
 
-  // Process initial sample on mount
-  useEffect(() => {
-    handleProcess(
-      SAMPLE_DOCUMENTS[0].text,
-      SAMPLE_DOCUMENTS[0].department,
-      SAMPLE_DOCUMENTS[0].task,
-      llmBackend
-    );
-  }, []);
-
   // Keyboard shortcut: Ctrl+Enter / Cmd+Enter to process
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -100,105 +84,12 @@ export default function GatewayPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [loading, text, handleProcess]);
 
-  // Handle sample selection from dropdown
-  const handleSelectSample = (sampleId) => {
-    const sample = SAMPLE_DOCUMENTS.find((d) => d.id === sampleId);
-    if (sample) {
-      setText(sample.text);
-      setDepartment(sample.department);
-      setTask(sample.task);
-      handleProcess(sample.text, sample.department, sample.task, llmBackend);
-      toast.info(`Loaded scenario: ${sample.title}`);
-    }
-  };
-
   // Handle uploaded text/pdf file
   const handleFileUpload = (content, filename, meta = {}) => {
     setText(content);
     setUploadedFileMeta({ name: filename, ...meta });
     toast.success(`Loaded ${filename} (${content.length.toLocaleString()} characters)`);
     handleProcess(content, department, task, llmBackend, filename);
-  };
-
-  // Automated Demo Walkthrough
-
-  // --- ZeroLeak Simulation & Auto‑Remediation ---
-  const [simulationResult, setSimulationResult] = useState(null);
-  const [policySuggestion, setPolicySuggestion] = useState(null);
-
-  const runSimulation = useCallback(async () => {
-    if (!processedResult?.sanitized_text) {
-      toast.warning('Run the real processing first to obtain a sanitized payload.');
-      return;
-    }
-    try {
-      const { simulateLLM } = await import('../services/simulation');
-      const sim = await simulateLLM(processedResult.sanitized_text);
-      setSimulationResult(sim);
-      // Suggest policy based on dropped placeholders
-      const { suggestPolicyFromDrops } = await import('../services/remediation');
-      const suggestion = suggestPolicyFromDrops(sim.droppedPlaceholders);
-      setPolicySuggestion(suggestion);
-      toast.success('Simulation completed – risk score: ' + sim.riskScore);
-    } catch (e) {
-      console.error('Simulation error', e);
-      toast.error('Simulation failed');
-    }
-  }, [processedResult]);
-
-  const applySuggestedPolicy = useCallback(async () => {
-    if (!policySuggestion) return;
-    // Merge suggestion into current department policy via API
-    try {
-      await updateDepartmentPolicy(department, policySuggestion);
-      toast.success('Suggested policy applied');
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to apply suggestion');
-    }
-  }, [policySuggestion, department]);
-
-  const stopDemo = useCallback(() => {
-    if (demoTimerRef.current) {
-      clearTimeout(demoTimerRef.current);
-      demoTimerRef.current = null;
-    }
-    setIsDemoRunning(false);
-    setDemoStep(0);
-  }, []);
-
-  const runDemoStep = useCallback(
-    (stepIndex) => {
-      if (stepIndex >= SAMPLE_DOCUMENTS.length) {
-        toast.success("Automated demo sequence completed.");
-        stopDemo();
-        return;
-      }
-
-      const sample = SAMPLE_DOCUMENTS[stepIndex];
-      setDemoStep(stepIndex);
-      setText(sample.text);
-      setDepartment(sample.department);
-      setTask(sample.task);
-      handleProcess(sample.text, sample.department, sample.task, llmBackend);
-
-      toast.info(`Demo [${stepIndex + 1}/${SAMPLE_DOCUMENTS.length}]: ${sample.title}`);
-
-      demoTimerRef.current = setTimeout(() => {
-        runDemoStep(stepIndex + 1);
-      }, 5000);
-    },
-    [handleProcess, llmBackend, stopDemo]
-  );
-
-  const toggleDemo = () => {
-    if (isDemoRunning) {
-      stopDemo();
-      toast.info("Demo mode stopped.");
-    } else {
-      setIsDemoRunning(true);
-      runDemoStep(0);
-    }
   };
 
   return (
@@ -211,13 +102,10 @@ export default function GatewayPage() {
         setTask={setTask}
         llmBackend={llmBackend}
         setLlmBackend={setLlmBackend}
-        onSelectSample={handleSelectSample}
         onFileUpload={handleFileUpload}
-        onClearText={() => setText("")}
+        onClearText={() => { setText(""); setUploadedFileMeta(null); setProcessedResult(null); }}
         onProcess={() => handleProcess()}
         loading={loading}
-        isDemoRunning={isDemoRunning}
-        onToggleDemo={toggleDemo}
         hasText={Boolean(text && text.trim())}
       />
 
