@@ -1,6 +1,7 @@
 ﻿import React, { useRef } from "react";
 import { toast } from "sonner";
 import { extractTextFromPdf } from "../../lib/pdfExtractor";
+import { extractTextFromDocx } from "../../lib/docxExtractor";
 import { validateDocumentContent } from "../../lib/documentValidator";
 import {
   ShieldCheck,
@@ -28,7 +29,7 @@ export default function TopBar({
 }) {
   const fileInputRef = useRef(null);
 
-  const ALLOWED_EXTENSIONS = [".txt", ".json", ".csv", ".log", ".md", ".pdf"];
+  const ALLOWED_EXTENSIONS = [".txt", ".json", ".csv", ".log", ".md", ".pdf", ".docx"];
   const MAX_FILE_SIZE_MB = 10;
 
   const handleFileChange = async (e) => {
@@ -40,6 +41,7 @@ export default function TopBar({
 
     const lowerName = file.name.toLowerCase();
     const isPdf = lowerName.endsWith(".pdf");
+    const isDocx = lowerName.endsWith(".docx");
 
     // 1. Extension check
     const hasAllowedExt = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
@@ -107,7 +109,39 @@ export default function TopBar({
       return;
     }
 
-    // 5. Handle plain text / structured files
+    // 5. Handle DOCX files
+    if (isDocx) {
+      const toastId = toast.loading(`Parsing Word document "${file.name}"...`);
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const extracted = await extractTextFromDocx(arrayBuffer);
+        const extractedText = extracted.text;
+
+        const validation = validateDocumentContent(extractedText, file.name);
+        if (!validation.valid) {
+          toast.error(validation.error, { id: toastId, duration: 6000 });
+          return;
+        }
+
+        toast.success(
+          `DOCX "${file.name}" loaded (${extractedText.length.toLocaleString()} characters).`,
+          { id: toastId }
+        );
+        onFileUpload(extractedText, file.name, {
+          size: file.size,
+          type: "DOCX",
+        });
+      } catch (err) {
+        console.error("DOCX parse error:", err);
+        toast.error(
+          `Failed to parse DOCX: ${err.message || "Invalid or corrupted Word document."}`,
+          { id: toastId, duration: 6000 }
+        );
+      }
+      return;
+    }
+
+    // 6. Handle plain text / structured files
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result;
@@ -203,7 +237,7 @@ export default function TopBar({
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept=".txt,.json,.csv,.log,.md,.pdf"
+            accept=".txt,.json,.csv,.log,.md,.pdf,.docx"
             className="hidden"
           />
 
@@ -211,7 +245,7 @@ export default function TopBar({
           <button
             onClick={() => fileInputRef.current?.click()}
             className="btn-secondary text-xs py-1.5 px-2.5"
-            title="Upload document (.pdf, .txt, .json, .csv, .log, .md)"
+            title="Upload document (.pdf, .docx, .txt, .json, .csv, .log, .md)"
           >
             <Upload className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Upload File</span>

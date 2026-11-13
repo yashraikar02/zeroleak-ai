@@ -1,3 +1,6 @@
+# Build output
+dist/
+
 # Dependencies
 node_modules/
 .pnp
@@ -12,11 +15,9 @@ __pycache__/
 env/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/

@@ -264,7 +264,7 @@ export default function OriginalDocumentPanel({
           <textarea
             value={text}
             onChange={handleTextChange}
-            placeholder={"Paste or type your document here…\n\nExamples:\n• Loan / KYC application with Aadhaar, PAN, phone\n• Healthcare intake / patient record\n• HR onboarding form\n• Support ticket with customer PII\n\nOr drag-and-drop / upload a .pdf, .txt, .json, .csv, .log or .md file above."}
+            placeholder={"Paste or type your document here…\n\nExamples:\n• Loan / KYC application with Aadhaar, PAN, phone\n• Healthcare intake / patient record\n• HR onboarding form\n• Support ticket with customer PII\n\nOr drag-and-drop / upload a .pdf, .docx, .txt, .json, .csv, .log or .md file above."}
             className="w-full h-full min-h-[300px] bg-transparent text-[#F5F5F5] font-mono text-[12.5px] leading-relaxed resize-none outline-none placeholder:text-[#9A9A9A]/40"
             spellCheck={false}
             autoFocus={!text}
