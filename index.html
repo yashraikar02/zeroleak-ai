@@ -9,27 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = './docs/assets/main-DUpEaj26.css';
-        document.head.appendChild(link);
-      }
-    </script>
+    <script type="module" src="/src/main.jsx"></script>
   </head>
   <body class="bg-[#0B0D0C] text-[#F1F5F2] antialiased selection:bg-[#38B879]/20 selection:text-[#38B879]">
     <div id="root"></div>
-    <script type="module">
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (isLocal) {
-        import('/src/main.jsx');
-      } else {
-        // Dynamic import using string concat to prevent Vite bundling the production path
-        const base = './docs/assets/';
-        const entry = 'main-B4cFAztN.js';
-        import(/* @vite-ignore */ base + entry);
-      }
-    </script>
   </body>
 </html>
