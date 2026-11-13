@@ -28,6 +28,7 @@ export const INITIAL_POLICIES = {
     EMAIL: "mask",
     DATE_OF_BIRTH: "mask",
     BANK_ACCOUNT: "mask",
+    IFSC: "mask",
   },
   Healthcare: {
     AADHAAR: "block",
@@ -41,6 +42,7 @@ export const INITIAL_POLICIES = {
     EMAIL: "mask",
     DATE_OF_BIRTH: "mask",
     BANK_ACCOUNT: "block",
+    IFSC: "mask",
   },
   "Human Resources": {
     AADHAAR: "block",
@@ -54,6 +56,7 @@ export const INITIAL_POLICIES = {
     EMAIL: "preserve",
     DATE_OF_BIRTH: "preserve",
     BANK_ACCOUNT: "mask",
+    IFSC: "mask",
   },
   Marketing: {
     AADHAAR: "block",
@@ -67,6 +70,7 @@ export const INITIAL_POLICIES = {
     EMAIL: "preserve",
     DATE_OF_BIRTH: "preserve",
     BANK_ACCOUNT: "block",
+    IFSC: "preserve",
   },
 };
 
@@ -254,10 +258,35 @@ export function generateMockProcessResult(input) {
 
   let m;
 
-  // 1. Aadhaar (12-digit UIDAI, with or without dashes/spaces)
-  const aadhaarRegex = /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g;
+  // ── Verhoeff checksum tables for Aadhaar validation ──
+  const VERHOEFF_D = [
+    [0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],
+    [3,4,0,1,2,8,9,5,6,7],[4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],
+    [6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],[8,7,6,5,9,3,2,1,0,4],
+    [9,8,7,6,5,4,3,2,1,0]
+  ];
+  const VERHOEFF_P = [
+    [0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],
+    [8,9,1,6,0,4,3,5,2,7],[9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],
+    [2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8]
+  ];
+  function verhoeffCheck(numStr) {
+    const digits = numStr.replace(/\D/g, "").split("").reverse().map(Number);
+    let c = 0;
+    for (let i = 0; i < digits.length; i++) {
+      c = VERHOEFF_D[c][VERHOEFF_P[i % 8][digits[i]]];
+    }
+    return c === 0;
+  }
+
+  // 1. Aadhaar — 12 digits, first digit 2-9, Verhoeff checksum required
+  const aadhaarRegex = /\b([2-9]\d{3})[-\s]?(\d{4})[-\s]?(\d{4})\b/g;
   while ((m = aadhaarRegex.exec(text)) !== null) {
-    registerSpan("AADHAAR", m[0], "12-digit UIDAI Aadhaar number (Verhoeff checksum verified)", 0.995, true, m.index, m.index + m[0].length);
+    const raw = m[0];
+    const digits12 = raw.replace(/\D/g, "");
+    if (digits12.length === 12 && verhoeffCheck(digits12)) {
+      registerSpan("AADHAAR", raw, "12-digit UIDAI Aadhaar number (Verhoeff checksum verified)", 0.995, true, m.index, m.index + raw.length);
+    }
   }
 
   // 2. GSTIN (15-character GST Tax identification number) - Process BEFORE PAN
@@ -290,10 +319,24 @@ export function generateMockProcessResult(input) {
     registerSpan("PASSPORT", m[0], "Indian Ministry of External Affairs Passport number", 0.985, true, m.index, m.index + m[0].length);
   }
 
-  // 6. Phone Numbers (Indian mobile numbers: +91 or standard 10 digits)
-  const phoneRegex = /(?:\+91[-\s]?)?[6-9]\d{4}[-\s]?\d{5}\b/g;
-  while ((m = phoneRegex.exec(text)) !== null) {
-    registerSpan("PHONE", m[0], "E.164-compliant Indian telecommunication mobile number", 0.99, true, m.index, m.index + m[0].length);
+  // 6. Phone Numbers — Indian mobile (various groupings) + STD landlines
+  // Mobile: optional +91/91/0 prefix, digits 6-9 start, 10 digits total, ANY separator grouping
+  const mobileRegex = /(?:(?:\+91|91|0)[-\s]?)?[6-9]\d{1,4}[-\s]\d{3,5}[-\s]\d{3,5}(?!\d)|(?:(?:\+91|91)[-\s]?)?[6-9]\d{9}(?!\d)/g;
+  while ((m = mobileRegex.exec(text)) !== null) {
+    const stripped = m[0].replace(/[-\s+]/g, "");
+    const digits = stripped.replace(/^(91)(?=[6-9])/, "").replace(/^0(?=[6-9])/, "");
+    if (digits.length === 10 && /^[6-9]/.test(digits)) {
+      registerSpan("PHONE", m[0].trim(), "Indian mobile number (10-digit, E.164 compliant)", 0.99, true, m.index, m.index + m[0].trim().length);
+    }
+  }
+  // STD Landline: 0XX/0XXX/0XXXX followed by hyphen/space then 6-8 digit local number
+  const landlineRegex = /\b0\d{2,4}[-\s]\d{6,8}\b/g;
+  while ((m = landlineRegex.exec(text)) !== null) {
+    const start = m.index, end = m.index + m[0].length;
+    const overlaps = rawSpans.some(s => s.type === "PHONE" && Math.max(start, s.start) < Math.min(end, s.end));
+    if (!overlaps) {
+      registerSpan("PHONE", m[0], "Indian STD landline number (area code + local subscriber number)", 0.97, true, start, end);
+    }
   }
 
   // 7. Email Address (RFC 5322 compliant)
@@ -302,7 +345,17 @@ export function generateMockProcessResult(input) {
     registerSpan("EMAIL", m[0], "RFC 5322 compliant electronic mail identifier", 0.999, true, m.index, m.index + m[0].length);
   }
 
-  // 8. Bank Account Number (9 to 18 digits, avoiding Aadhaar)
+  // 8. IFSC Code (RBI format: 4 uppercase letters + 0 + 6 alphanumeric)
+  const ifscRegex = /\b[A-Z]{4}0[A-Z0-9]{6}\b/g;
+  while ((m = ifscRegex.exec(text)) !== null) {
+    const start = m.index, end = m.index + m[0].length;
+    const overlaps = rawSpans.some(s => Math.max(start, s.start) < Math.min(end, s.end));
+    if (!overlaps) {
+      registerSpan("IFSC", m[0], "RBI-assigned Indian Financial System Code (bank branch identifier)", 0.99, true, start, end);
+    }
+  }
+
+  // 9. Bank Account Number (9 to 18 digits, avoiding Aadhaar and IFSC)
   const bankRegex = /\b\d{9,18}\b/g;
   while ((m = bankRegex.exec(text)) !== null) {
     const val = m[0];
@@ -312,13 +365,15 @@ export function generateMockProcessResult(input) {
     }
   }
 
-  // 9. Date of Birth
-  const dobRegex = /\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b/g;
-  while ((m = dobRegex.exec(text)) !== null) {
-    registerSpan("DATE_OF_BIRTH", m[0], "Calendar date of birth (DD-MM-YYYY format)", 0.97, true, m.index, m.index + m[0].length);
+  // 10. Date of Birth — ONLY tag when DOB context word is nearby
+  const dobContextRegex = /(?:dob|d\.o\.b|date\s+of\s+birth|birth\s+date|born\s+on|born)[:\s]+(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/gi;
+  while ((m = dobContextRegex.exec(text)) !== null) {
+    const dateStr = m[1];
+    const dateStart = m.index + m[0].lastIndexOf(dateStr);
+    registerSpan("DATE_OF_BIRTH", dateStr, "Date of birth with explicit DOB context (DPDP sensitive)", 0.97, true, dateStart, dateStart + dateStr.length);
   }
 
-  // 10. Indian Postal Address / Locality
+  // 11. Indian Postal Address / Locality
   const addressRegex = /(?:(?:\d+[\w\s,-]+)?(?:Road|Street|Cross|Nagar|Layout|Branch|Highway|Colony|Sector|Heights|Apt|Flat|Bandra|Vidyanagar|T\.?\s*Nagar|Shanti Heights)[\w\s,-]+(?:Karnataka|Gujarat|Tamil Nadu|Maharashtra|Delhi|Davangere|Ahmedabad|Chennai|Bangalore|Bengaluru|Mumbai)?\s*\b[1-9]\d{2}\s?\d{3}\b)/gi;
   while ((m = addressRegex.exec(text)) !== null) {
     registerSpan("ADDRESS", m[0], "Indian postal physical address with validated 6-digit PIN code", 0.95, true, m.index, m.index + m[0].length);
@@ -333,7 +388,7 @@ export function generateMockProcessResult(input) {
     }
   }
 
-  // 11. Robust Case-Insensitive Indian Person Name Recognition:
+  // 12. Robust Case-Insensitive Indian Person Name Recognition:
   // Layer A: Contextual triggers ("customer: ...", "contact person: ...", "patient: ...", "name: ...")
   // The regex captures up to 40 chars after the trigger; we then tokenize and stop at NAME_STOP_WORDS
   const contextNameRegex = /(?:contact person[:\s-]+|supplier[:\s-]+|customer[:\s-]+|patient[:\s-]+|employee[:\s-]+|applicant\s*\d*\s*(?:\([^)]*\))?\s*:\s*|borrower[:\s-]+|user[:\s-]+|(?:full\s+)?name[:\s-]+|my name is\s+|i am\s+|mr\.\s*|mrs\.\s*|ms\.\s*|shri\s+|smt\s+|dr\.\s*)([A-Z][a-z][a-zA-Z\s]{1,36})/g;
@@ -557,6 +612,7 @@ ${addrTok ? `- Primary Address: ${addrTok}.\n` : ""}- Compliance Status: Documen
     else if (ent.type === "GSTIN") pts = 15;
     else if (ent.type === "ADDRESS") pts = 15;
     else if (ent.type === "VOTER_ID") pts = 15;
+    else if (ent.type === "IFSC") pts = 10;
     else if (ent.type === "PHONE") pts = 10;
     else if (ent.type === "EMAIL") pts = 10;
     else if (ent.type === "PERSON") pts = 10;
